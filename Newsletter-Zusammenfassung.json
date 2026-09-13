@@ -1,0 +1,219 @@
+{
+  "name": "Newsletter-Zusammenfassung",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3d2ece19-9c37-459f-aae6-7dc75cb4fc54",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://www.tagesschau.de/xml/rss2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "81760876-8bf8-4635-b1f8-6d4b4ea0726b",
+      "name": "RSS Read"
+    },
+    {
+      "parameters": {
+        "maxItems": 3
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "21672079-4a27-4e1d-99d6-d5b5270be379",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        624,
+        0
+      ],
+      "id": "9a29644b-ace6-4704-bb42-aeea7d280e20",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer [Your Groq API]"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"openai/gpt-oss-120b\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Fasse diesen Nachrichtenartikel in 2 Sätzen zusammen.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"={{ $json.title + ': ' + $json.contentSnippet }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        832,
+        208
+      ],
+      "id": "d3476eb0-4369-4345-ab6a-f740fb5e6e70",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst zusammenfassungen = items.map(item => item.json.choices[0].message.content);\n\nreturn [{ json: { alle_zusammenfassungen: zusammenfassungen.join('\\n\\n') } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        -16
+      ],
+      "id": "62167e15-6eb7-495a-90c8-b5c9da9865ae",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "sendTo": "[Your Gmail]",
+        "subject": "Deine News-Zusammenfassung",
+        "message": "={{ $json.alle_zusammenfassungen }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1056,
+        -16
+      ],
+      "id": "2648b82b-2449-44c0-89ae-6efbb502fa82",
+      "name": "Send a message",
+      "webhookId": "b602d3c2-e669-49c0-98d8-6f3baca2fff1",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "aOp0faA3otY1raLJ",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "7fc5f524-b94d-4dc1-b3d4-240ad6b81d3d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c7a1b6a28b20bb57aac2671a20e46738269044577ba4fbeea9d8ea413a6ab073"
+  },
+  "id": "3vuyEHJiCVqH5z7T",
+  "tags": []
+}
